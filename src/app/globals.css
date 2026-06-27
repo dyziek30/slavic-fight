@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-ink text-chalk font-sans antialiased;
+    background-image:
+      radial-gradient(circle at 20% -10%, rgba(255, 255, 255, 0.04), transparent 40%),
+      radial-gradient(circle at 90% 0%, rgba(255, 255, 255, 0.03), transparent 35%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-chalk text-ink;
+  }
+
+  /* Subtelny pasek przewijania w klimacie strony */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-carbon;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ash rounded-full;
+  }
+}
+
+@layer components {
+  .container-x {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  .heading-display {
+    @apply font-display font-bold uppercase tracking-tight;
+  }
+
+  /* Przyciski */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-sm font-semibold
+      uppercase tracking-wide transition-all duration-200 focus:outline-none focus-visible:ring-2
+      focus-visible:ring-chalk/60 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-chalk text-ink hover:bg-white hover:shadow-lg hover:shadow-white/10;
+  }
+  .btn-outline {
+    @apply btn border border-ash bg-transparent text-chalk hover:border-chalk hover:bg-white/5;
+  }
+  .btn-ghost {
+    @apply btn bg-white/5 text-chalk hover:bg-white/10;
+  }
+  .btn-danger {
+    @apply btn border border-blood/50 bg-blood/10 text-chalk hover:bg-blood/20;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  /* Pola formularzy */
+  .label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-smoke;
+  }
+  .input {
+    @apply w-full rounded-md border border-ash bg-coal px-4 py-2.5 text-sm text-chalk
+      placeholder:text-smoke/60 transition-colors focus:border-chalk focus:outline-none;
+  }
+  .field-error {
+    @apply mt-1 text-xs text-blood;
+  }
+
+  /* Karty / panele */
+  .card {
+    @apply rounded-xl border border-steel bg-coal/80 backdrop-blur;
+  }
+  .panel {
+    @apply rounded-2xl border border-steel bg-gradient-to-b from-coal to-carbon;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide;
+  }
+
+  .nav-link {
+    @apply rounded-md px-3 py-2 text-sm font-medium text-smoke transition-colors hover:text-chalk;
+  }
+  .nav-link-active {
+    @apply bg-white/10 text-chalk;
+  }
+}

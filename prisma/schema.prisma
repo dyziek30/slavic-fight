@@ -1,0 +1,236 @@
+// Slavic Fight — schemat bazy danych
+// Sekcja bokserska Tomasza Artyma (Buszkowice / Przemyśl / Żurawica)
+//
+// Role: SUPER_ADMIN (właściciel/nadzorca), TRAINER (Tomasz Artym), STUDENT (podopieczny)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Dev: SQLite (zero konfiguracji). Produkcja: zmień provider na "postgresql"
+  // i ustaw DATABASE_URL na łańcuch połączenia Postgresa.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Użytkownicy i role
+//  Role/typy jako String (zgodność SQLite/PostgreSQL) — uniony w @/lib/types.
+//  Role: SUPER_ADMIN | TRAINER | STUDENT
+// ──────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("STUDENT")
+
+  // Profil uzupełniany przez podopiecznego po rejestracji
+  firstName    String?
+  lastName     String?
+  birthYear    Int?
+  phone        String?
+  profileCompleted Boolean @default(false)
+
+  // Przypisana grupa treningowa (tylko dla STUDENT)
+  groupId      String?
+  group        Group?   @relation("GroupMembers", fields: [groupId], references: [id], onDelete: SetNull)
+
+  active       Boolean  @default(true)
+
+  // Relacje
+  createdGroups   Group[]        @relation("GroupCreatedBy")
+  createdEvents   Event[]        @relation("EventCreatedBy")
+  authoredPosts   Post[]         @relation("PostAuthor")
+  sentMessages    Message[]      @relation("MessageSender")
+  conversationsA  Conversation[] @relation("ConversationParticipantA")
+  conversationsB  Conversation[] @relation("ConversationParticipantB")
+  readReceipts    MessageRead[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
+  @@index([groupId])
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Grupy treningowe
+// ──────────────────────────────────────────────────────────────
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  active      Boolean  @default(true)
+
+  createdById String?
+  createdBy   User?    @relation("GroupCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  members     User[]       @relation("GroupMembers")
+  events      EventGroup[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active])
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Terminarz / wydarzenia (zajęcia, sparingi, wydarzenia klubowe)
+// ──────────────────────────────────────────────────────────────
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  // data zajęć (dzień) + godziny rozpoczęcia/zakończenia
+  date        DateTime
+  startTime   String   // "18:00"
+  endTime     String   // "19:30"
+  location    String   @default("Buszkowice 59A")
+
+  createdById String?
+  createdBy   User?    @relation("EventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Wydarzenie może dotyczyć wielu grup
+  groups      EventGroup[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+}
+
+// Tabela łącząca Event <-> Group (relacja wiele-do-wielu z metadanymi)
+model EventGroup {
+  eventId String
+  groupId String
+  event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, groupId])
+  @@index([groupId])
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Wiadomości (wewnętrzna skrzynka: podopieczny <-> trener)
+// ──────────────────────────────────────────────────────────────
+
+// Konwersacja między dwoma użytkownikami (zwykle STUDENT <-> TRAINER).
+// participantA / participantB znormalizowane (A.id < B.id) aby uniknąć duplikatów.
+model Conversation {
+  id            String   @id @default(cuid())
+
+  participantAId String
+  participantBId String
+  participantA   User    @relation("ConversationParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB   User    @relation("ConversationParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+
+  messages      Message[]
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@unique([participantAId, participantBId])
+  @@index([participantAId])
+  @@index([participantBId])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId       String
+  sender         User     @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  body           String
+  createdAt      DateTime @default(now())
+
+  // status przeczytania per-użytkownik (nadawca z definicji przeczytał)
+  reads          MessageRead[]
+
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+model MessageRead {
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId])
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Treści: aktualności / Akademia Video / blog
+// ──────────────────────────────────────────────────────────────
+
+// PostType: NEWS (aktualności) | VIDEO (Akademia) | BLOG
+model Post {
+  id          String   @id @default(cuid())
+  type        String   @default("NEWS")
+  title       String
+  slug        String   @unique
+  excerpt     String?
+  content     String
+  coverImage  String?
+  videoUrl    String?  // np. link YouTube dla Akademii Video
+  published   Boolean  @default(false)
+
+  authorId    String?
+  author      User?    @relation("PostAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([published])
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Opinie (sekcja publiczna)
+// ──────────────────────────────────────────────────────────────
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  author    String
+  role      String?  // np. "Podopieczny", "Rodzic"
+  content   String
+  rating    Int      @default(5)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Formularz kontaktowy (zgłoszenia z części publicznej)
+// ──────────────────────────────────────────────────────────────
+
+// ContactStatus: NEW | CONTACTED | ARCHIVED
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  message   String
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Ustawienia strony (zarządzane przez SUPER_ADMIN)
+// ──────────────────────────────────────────────────────────────
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
