@@ -8,9 +8,8 @@ generator client {
 }
 
 datasource db {
-  // Dev: SQLite (zero konfiguracji). Produkcja: zmień provider na "postgresql"
-  // i ustaw DATABASE_URL na łańcuch połączenia Postgresa.
-  provider = "sqlite"
+  // PostgreSQL (Neon na Vercel). DATABASE_URL wstrzykiwany przez integrację Neon.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

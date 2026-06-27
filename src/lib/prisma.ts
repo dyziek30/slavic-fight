@@ -5,9 +5,14 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Fallback URL, by brak DATABASE_URL nie wywalał konstrukcji klienta przy imporcie
-// (zapytania i tak są w try/catch). W produkcji ustaw realne DATABASE_URL.
-const datasourceUrl = process.env.DATABASE_URL ?? "file:./dev.db";
+// Preferuj połączenie bezpośrednie (unpooled) — bezpieczniejsze dla Prisma niż
+// pooler Neon (pgbouncer). Fallback na DATABASE_URL, a na końcu na sqlite, by brak
+// zmiennej nie wywalał konstrukcji klienta przy imporcie (zapytania są w try/catch).
+const datasourceUrl =
+  process.env.DATABASE_URL_UNPOOLED ??
+  process.env.POSTGRES_URL_NON_POOLING ??
+  process.env.DATABASE_URL ??
+  "file:./dev.db";
 
 export const prisma =
   globalForPrisma.prisma ??
